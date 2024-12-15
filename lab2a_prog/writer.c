@@ -16,7 +16,7 @@ int main() {
 
   for(int i=0;i<N_DEVS;i++) {
     sprintf(filename, "/dev/shofer%d", i);
-    int fd = open(filename, O_RDONLY);
+    int fd = open(filename, O_WRONLY);
 
     if(fd > -1) {
       pollfds[i].fd = fd;
