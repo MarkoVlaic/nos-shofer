@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #define N_DEVS 6
 
@@ -13,10 +14,16 @@ int main() {
 
   for(int i=0;i<N_DEVS;i++) {
     sprintf(filename, "/dev/shofer%d", i);
-    pollfds[i].fd = open(filename, O_RDONLY);
-    pollfds->events = POLLIN;
-    
-    printf("opened device %s\n", filename);
+    int fd = open(filename, O_RDONLY);
+
+    if(fd > -1) {
+      pollfds[i].fd = fd;
+      pollfds->events = POLLIN;
+      printf("opened device %s\n", filename);
+    } else {
+      printf("error opening %s\n", filename);
+      exit(1);
+    }
   }
 
   while(1) {

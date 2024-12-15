@@ -10,4 +10,4 @@ writer: writer.c
 	$(CC) $(CFLAGS) writer.c -o writer
 
 clean:
-	rm -f reader.o writer.o
+	rm -f reader writer
