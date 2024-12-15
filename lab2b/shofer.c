@@ -329,6 +329,9 @@ static long control_ioctl (struct file *filp, unsigned int request, unsigned lon
 	struct buffer *out_buff = shofer->out_buff;
 	struct shofer_ioctl cmd;
 
+	dump_buffer("ioctl-start:in_buff", in_buff);
+	dump_buffer("ioctl-start:out_buff", out_buff);
+
 	if (_IOC_TYPE(request) != SHOFER_IOCTL_TYPE || _IOC_NR(request) != SHOFER_IOCTL_NR) {
 		klog(KERN_WARNING, "IOC type and/or nr don't match");
 		return -EINVAL;
@@ -351,6 +354,9 @@ static long control_ioctl (struct file *filp, unsigned int request, unsigned lon
 	}
 
 	in_transfer_out(in_buff, out_buff, cmd.count);
+
+	dump_buffer("ioctl-end:in_buff", in_buff);
+	dump_buffer("ioctl-end:out_buff", out_buff);
 
 	return retval;
 }
