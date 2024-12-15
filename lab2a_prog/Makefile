@@ -1,7 +1,13 @@
 CC=gcc
 CFLAGS=-Werror -Wall
 
-all: reader.o writer.o
+all: reader writer.o
 
-reader.o: reader.c
-writer.o: writer.c
+reader: reader.c
+	$(CC) $(CFLAGS) reader.c -o reader
+
+writer: writer.c
+	$(CC) $(CFLAGS) writer.c -o writer
+
+clean:
+	rm -f reader.o writer.o
