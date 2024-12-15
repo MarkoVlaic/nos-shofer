@@ -375,7 +375,7 @@ static void timer_function(struct timer_list *t)
 	dump_buffer("timer-end:out_buff", out_buff);
 
 	/* reschedule timer for period */
-	mod_timer(t, jiffies + msecs_to_jiffies(TIMER_PERIOD));
+	//mod_timer(t, jiffies + msecs_to_jiffies(TIMER_PERIOD));
 }
 
 static int in_transfer_out(struct buffer *in, struct buffer *out, size_t bytes) {
