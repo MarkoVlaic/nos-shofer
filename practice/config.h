@@ -15,3 +15,8 @@
 
 #define AUTHOR		"Marko Vlaic"
 #define LICENSE		"Dual BSD/GPL"
+
+struct shofer_dev {
+  dev_t dev_no;
+  struct cdev cdev;
+};
