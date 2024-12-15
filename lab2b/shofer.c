@@ -66,6 +66,8 @@ static ssize_t shofer_read(struct file *, char __user *, size_t, loff_t *);
 static ssize_t shofer_write(struct file *, const char __user *, size_t, loff_t *);
 static long control_ioctl (struct file *, unsigned int, unsigned long);
 
+static int in_transfer_out(struct buffer *in, struct buffer *out, size_t);
+
 static struct file_operations input_fops = {
 	.owner =    THIS_MODULE,
 	.open =     shofer_open_write,
@@ -254,7 +256,13 @@ static int shofer_open_read(struct inode *inode, struct file *filp)
 /* open for input_dev */
 static int shofer_open_write(struct inode *inode, struct file *filp)
 {
-	/* todo (similar to shofer_open_read) */
+	struct shofer_dev *shofer;
+
+	shofer = container_of(inode->i_cdev, struct shofer_dev, cdev);
+	filp->private_data = shofer;
+
+	if ( (filp->f_flags & O_ACCMODE) != O_WRONLY)
+		return -EPERM;
 
 	return 0;
 }
@@ -290,21 +298,35 @@ static ssize_t shofer_read(struct file *filp, char __user *ubuf, size_t count,
 static ssize_t shofer_write(struct file *filp, const char __user *ubuf,
 	size_t count, loff_t *f_pos)
 {
-	/* todo (similar to read) */
+	ssize_t retval = 0;
+	struct shofer_dev *shofer = filp->private_data;
+	struct buffer *in_buff = shofer->in_buff;
+	struct kfifo *fifo = &in_buff->fifo;
+	unsigned int copied;
 
-	return count;
+	spin_lock(&in_buff->key);
+
+	dump_buffer("in_dev-end:in_buff:", in_buff);
+
+	retval = kfifo_from_user(fifo, (char __user *) ubuf, count, &copied);
+	if (retval)
+		klog(KERN_WARNING, "kfifo_from_user failed");
+	else
+		retval = copied;
+
+	dump_buffer("in_dev-end:in_buff:", in_buff);
+
+	spin_unlock(&in_buff->key);
+
+	return copied;
 }
 
 static long control_ioctl (struct file *filp, unsigned int request, unsigned long arg)
 {
 	ssize_t retval = 0;
-	/*struct shofer_dev *shofer = filp->private_data;
+	struct shofer_dev *shofer = filp->private_data;
 	struct buffer *in_buff = shofer->in_buff;
 	struct buffer *out_buff = shofer->out_buff;
-	struct kfifo *fifo_in = &in_buff->fifo;
-	struct kfifo *fifo_out = &out_buff->fifo;
-	char c;
-	int got;*/
 	struct shofer_ioctl cmd;
 
 	if (_IOC_TYPE(request) != SHOFER_IOCTL_TYPE || _IOC_NR(request) != SHOFER_IOCTL_NR) {
@@ -328,8 +350,7 @@ static long control_ioctl (struct file *filp, unsigned int request, unsigned lon
 		return retval;
 	}
 
-	/* copy cmd.count bytes from in_buff to out_buff */
-	/* todo (similar to timer) */
+	in_transfer_out(in_buff, out_buff, cmd.count);
 
 	return retval;
 }
@@ -337,44 +358,54 @@ static long control_ioctl (struct file *filp, unsigned int request, unsigned lon
 static void timer_function(struct timer_list *t)
 {
 	struct shofer_timer *timer = container_of(t, struct shofer_timer, timer);
-	struct buffer *in_buff = timer->in_buff, *out_buff = timer->out_buff;
-	struct kfifo *fifo_in = &in_buff->fifo;
-	struct kfifo *fifo_out = &out_buff->fifo;
-	char c;
-	int got;
-
-	/* get locks on both buffers */
-	spin_lock(&out_buff->key);
-	spin_lock(&in_buff->key);
+	struct buffer *in_buff = timer->in_buff, *out_buff = timer->out_buff;;
 
 	dump_buffer("timer-start:in_buff", in_buff);
 	dump_buffer("timer-start:out_buff", out_buff);
 
-	if (kfifo_len(fifo_in) > 0 && kfifo_avail(fifo_out) > 0) {
-		got = kfifo_get(fifo_in, &c);
-		if (got > 0) {
-			got = kfifo_put(fifo_out, c);
-			if (got)
-				LOG("timer moved '%c' from in to out", c);
-			else /* should't happen! */
-				klog(KERN_WARNING, "kfifo_put failed");
-		}
-		else { /* should't happen! */
-			klog(KERN_WARNING, "kfifo_get failed");
-		}
-	}
-	else {
-		LOG("timer: nothing in input buffer");
-		//for test: put '#' in output buffer
-		got = kfifo_put(fifo_out, '#');
-	}
+	in_transfer_out(in_buff, out_buff, 1);
 
 	dump_buffer("timer-end:in_buff", in_buff);
 	dump_buffer("timer-end:out_buff", out_buff);
 
-	spin_unlock(&in_buff->key);
-	spin_unlock(&out_buff->key);
-
 	/* reschedule timer for period */
 	mod_timer(t, jiffies + msecs_to_jiffies(TIMER_PERIOD));
+}
+
+static int in_transfer_out(struct buffer *in, struct buffer *out, size_t bytes) {
+	int retval = 0;
+	struct kfifo *fifo_in, *fifo_out;
+	char *buf = NULL;
+	size_t copied;
+
+	fifo_in = &in->fifo;
+	fifo_out = &out->fifo;
+
+	spin_lock(&out_buff->key);
+	spin_lock(&in_buff->key);
+
+	if(kfifo_len(fifo_in) < bytes || kfifo_avail(fifo_out) < bytes) {
+		retval = -1;
+		goto cleanup;
+	}
+
+	buf = kmalloc(bytes, GFP_KERNEL);
+	copied = kfifo_out(fifo_in, buf, bytes);
+	if(copied != bytes) {
+		LOG("kfifo_out: expected %lu bytes, got %lu\n", bytes, copied);
+	}
+
+	copied = kfifo_in(fifo_out, buf, bytes);
+	if(copied != bytes) {
+		LOG("kfifo_in: expected %lu bytes, got %lu\n", bytes, copied);
+	}
+	
+cleanup:
+	spin_unlock(&in_buff->key);
+	spin_unlock(&out_buff->key);
+	if(buf) {
+		kfree(buf);
+	}
+
+	return retval;
 }
