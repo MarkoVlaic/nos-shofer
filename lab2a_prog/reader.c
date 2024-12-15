@@ -18,7 +18,7 @@ int main() {
 
     if(fd > -1) {
       pollfds[i].fd = fd;
-      pollfds->events = POLLIN;
+      pollfds[i].events = POLLIN;
       printf("opened device %s\n", filename);
     } else {
       printf("error opening %s\n", filename);
