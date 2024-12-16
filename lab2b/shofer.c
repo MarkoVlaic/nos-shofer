@@ -275,13 +275,16 @@ static ssize_t shofer_read(struct file *filp, char __user *ubuf, size_t count,
 	struct shofer_dev *shofer = filp->private_data;
 	struct buffer *out_buff = shofer->out_buff;
 	struct kfifo *fifo = &out_buff->fifo;
-	unsigned int copied;
+	unsigned int copied, to_copy;
+	size_t len;
 
 	spin_lock(&out_buff->key);
 
 	dump_buffer("out_dev-start:out_buff:", out_buff);
 
-	retval = kfifo_to_user(fifo, (char __user *) ubuf, count, &copied);
+	len = kfifo_len(fifo);
+	to_copy = min(count, len);
+	retval = kfifo_to_user(fifo, (char __user *) ubuf, to_copy, &copied);
 	if (retval)
 		klog(KERN_WARNING, "kfifo_to_user failed");
 	else
