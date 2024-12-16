@@ -13,7 +13,7 @@
 int main(int argc, char *argv[])
 {
 	int fp;
-	char buffer[MAXSZ];
+	char buffer[MAXSZ + 1];
 	size_t size;
 	long pid = (long) getpid();
 
@@ -31,6 +31,7 @@ int main(int argc, char *argv[])
 			perror("Greska pri citanju! Greska: ");
 			break;
 		}
+		buffer[size] = '\0';
 		printf("Citac %ld procitao (%ld): %s\n", pid, size, buffer);
 		sleep(1);
 	}
