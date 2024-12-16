@@ -353,7 +353,7 @@ static long control_ioctl(struct file *filp, unsigned int request, unsigned long
 		return retval;
 	}
 
-	in_transfer_out(in_buff, out_buff, cmd.count);
+	retval = in_transfer_out(in_buff, out_buff, cmd.count);
 
 	dump_buffer("ioctl-end:in_buff", in_buff);
 	dump_buffer("ioctl-end:out_buff", out_buff);
@@ -399,11 +399,15 @@ static int in_transfer_out(struct buffer *in, struct buffer *out, size_t bytes) 
 	copied = kfifo_out(fifo_in, buf, bytes);
 	if(copied != bytes) {
 		LOG("kfifo_out: expected %lu bytes, got %lu\n", bytes, copied);
+		retval = -1;
+		goto cleanup;
 	}
 
 	copied = kfifo_in(fifo_out, buf, bytes);
 	if(copied != bytes) {
 		LOG("kfifo_in: expected %lu bytes, got %lu\n", bytes, copied);
+		retval = -1;
+		goto cleanup;
 	}
 	
 cleanup:
