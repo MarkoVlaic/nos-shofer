@@ -162,6 +162,7 @@ static int shofer_open(struct inode *inode, struct file *filp) {
 
   accmode = filp->f_flags & O_ACCMODE; 
   if(accmode != O_RDONLY || accmode != O_WRONLY || accmode != O_RDWR) {
+    LOG("not permitted %d", accmode);
     return -EPERM;
   }
 
