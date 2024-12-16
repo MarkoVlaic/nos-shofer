@@ -161,7 +161,7 @@ static int shofer_open(struct inode *inode, struct file *filp) {
   filp->private_data = shofer;
 
   accmode = filp->f_flags & O_ACCMODE; 
-  if(accmode != O_RDONLY || accmode != O_WRONLY || accmode != O_RDWR) {
+  if(accmode != O_RDONLY && accmode != O_WRONLY && accmode != O_RDWR) {
     LOG("not permitted %d", accmode);
     return -EPERM;
   }
@@ -195,7 +195,7 @@ static ssize_t shofer_read(struct file *filp, char __user *ubuf, size_t count, l
   fifo = &pipe->fifo;
   accmode = filp->f_flags & O_ACCMODE;
 
-  if(accmode != O_RDONLY || accmode != O_RDWR) {
+  if(accmode != O_RDONLY && accmode != O_RDWR) {
     return -EPERM;
   }
 
@@ -249,7 +249,7 @@ static ssize_t shofer_write(struct file *filp, const char __user *ubuf, size_t c
   fifo = &pipe->fifo;
   accmode = filp->f_flags & O_ACCMODE;
 
-  if(accmode != O_WRONLY || accmode != O_RDWR) {
+  if(accmode != O_WRONLY && accmode != O_RDWR) {
     return -EPERM;
   }
 
